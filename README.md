@@ -2,6 +2,8 @@
 
 A conversational AI chatbot built with **Streamlit** and **LangChain**, powered by open-source models from HuggingFace. No GPU required — it calls the HuggingFace Inference API remotely.
 
+website link: https://ai-huggingface-chatbot.streamlit.app/
+
 <img width="1603" height="854" alt="Screenshot 2026-06-27 at 9 19 07 PM" src="https://github.com/user-attachments/assets/db033417-b48e-4f23-8322-b1c4b1c79bd2" />
 
 <img width="1598" height="835" alt="Screenshot 2026-06-27 at 9 19 27 PM" src="https://github.com/user-attachments/assets/6df15c49-7cf3-46dc-87f7-9f8aabc52b3e" />
