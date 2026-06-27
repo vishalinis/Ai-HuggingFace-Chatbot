@@ -11,7 +11,8 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # ── Environment & Secrets ─────────────────────────────────────────────────────
 # Locally:          create a .env file with HUGGINGFACEHUB_API_TOKEN=hf_xxx
@@ -54,8 +55,23 @@ def load_model(repo_id: str, temperature: float, max_new_tokens: int):
         do_sample=True,       # required when temperature > 0
     )
     # ChatHuggingFace wraps the endpoint to support the chat message format
-    # (SystemMessage / HumanMessage / AIMessage) used by LangChain
+    # (HumanMessage / AIMessage) used by LangChain
     return ChatHuggingFace(llm=endpoint)
+
+
+# ── Prompt Template ───────────────────────────────────────────────────────────
+# Structure of every call to the model:
+#   1. system   — persona/behavior, injected fresh from the sidebar each time
+#   2. history  — all past HumanMessage + AIMessage pairs (MessagesPlaceholder)
+#   3. human    — the current user message
+#
+# MessagesPlaceholder is the slot where the full chat history is inserted at
+# runtime. This keeps the template structure separate from the conversation data.
+prompt_template = ChatPromptTemplate([
+    ("system", "{system_prompt}"),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{query}"),
+])
 
 
 # ── Sidebar — Settings ────────────────────────────────────────────────────────
@@ -78,7 +94,8 @@ with st.sidebar:
         min_value=128, max_value=1024, value=512, step=128,
     )
 
-    # System prompt sets the assistant's persona for the whole conversation
+    # System prompt is now a template variable — changing it takes effect
+    # immediately on the next message without touching chat_history
     system_prompt = st.text_area(
         "System Prompt",
         value="You are a helpful assistant.",
@@ -88,43 +105,36 @@ with st.sidebar:
 
     st.divider()
 
-    # Clears the conversation and starts fresh with the current system prompt
+    # chat_history no longer holds a SystemMessage, so clearing is just []
     if st.button("🗑️ Clear Chat", use_container_width=True, type="secondary"):
-        st.session_state.chat_history = [SystemMessage(content=system_prompt)]
+        st.session_state.chat_history = []
         st.rerun()
 
     st.divider()
 
-    # Live stats shown at the bottom of the sidebar
-    msg_count = len([
-        m for m in st.session_state.get("chat_history", [])
-        if isinstance(m, (HumanMessage, AIMessage))
-    ])
+    msg_count = len(st.session_state.get("chat_history", []))
     st.caption(f"Model: `{MODELS[model_name].split('/')[-1]}`")
     st.caption(f"Messages this session: **{msg_count}**")
 
 
-# ── Model Init ────────────────────────────────────────────────────────────────
+# ── Model + Chain ─────────────────────────────────────────────────────────────
+# LCEL chain: template fills the prompt → model generates the response
 model = load_model(MODELS[model_name], temperature, max_tokens)
+chain = prompt_template | model
 
 # ── Session State ─────────────────────────────────────────────────────────────
-# chat_history holds the full conversation as LangChain message objects.
-# It always starts with a SystemMessage so the model knows its role.
+# chat_history stores only HumanMessage + AIMessage pairs.
+# The SystemMessage is no longer stored here — it lives in the template
+# and is injected fresh from the sidebar variable on every call.
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [SystemMessage(content=system_prompt)]
-
-# Sync system prompt live if the user edits it in the sidebar mid-conversation
-if isinstance(st.session_state.chat_history[0], SystemMessage):
-    st.session_state.chat_history[0] = SystemMessage(content=system_prompt)
+    st.session_state.chat_history = []
 
 # ── Page Header ───────────────────────────────────────────────────────────────
 st.title("🤖 HuggingFace Chatbot")
 st.caption("Powered by LangChain · Meta Llama · Mistral · Zephyr")
 
 # ── Empty State ───────────────────────────────────────────────────────────────
-# Shown only when no messages exist yet — gives new users a clear starting cue
-visible = [m for m in st.session_state.chat_history if isinstance(m, (HumanMessage, AIMessage))]
-if not visible:
+if not st.session_state.chat_history:
     st.markdown(
         """
         <div style="text-align:center; color:gray; padding:3rem 0;">
@@ -137,30 +147,38 @@ if not visible:
 
 # ── Chat History Display ──────────────────────────────────────────────────────
 # Replays the full conversation on every Streamlit rerun.
-# SystemMessage is intentionally skipped — it's internal context, not UI.
 for message in st.session_state.chat_history:
     if isinstance(message, HumanMessage):
         with st.chat_message("user"):
             st.markdown(message.content)
     elif isinstance(message, AIMessage):
         with st.chat_message("assistant"):
-            st.markdown(message.content)   # markdown renders code blocks, bold, etc.
+            st.markdown(message.content)
 
 # ── Chat Input & Response ─────────────────────────────────────────────────────
 user_input = st.chat_input("Type your message…")
 
 if user_input:
-    # Append the user's message to history and display it immediately
-    st.session_state.chat_history.append(HumanMessage(content=user_input))
     with st.chat_message("user"):
         st.markdown(user_input)
 
     try:
-        # Stream the response token-by-token using model.stream()
-        # st.write_stream() renders each chunk as it arrives (like ChatGPT)
+        # chain.stream() fills the template with:
+        #   system_prompt → from the sidebar (always fresh)
+        #   chat_history  → past Human+AI pairs from session state
+        #   query         → the current user message
         with st.chat_message("assistant"):
-            response = st.write_stream(model.stream(st.session_state.chat_history))
-        # Save the completed response to history for the next turn
+            response = st.write_stream(
+                chain.stream({
+                    "system_prompt": system_prompt,
+                    "chat_history": st.session_state.chat_history,
+                    "query": user_input,
+                })
+            )
+
+        # Save both sides of this turn to history for the next call
+        st.session_state.chat_history.append(HumanMessage(content=user_input))
         st.session_state.chat_history.append(AIMessage(content=response))
+
     except Exception as e:
         st.error(f"Error getting response: {e}")
