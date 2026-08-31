@@ -48,36 +48,25 @@ MODELS = {
 @st.cache_resource
 def load_model(repo_id: str, temperature: float, max_new_tokens: int):
     """Connect to a HuggingFace Inference API endpoint and wrap it for chat."""
-    # Many account-level provider settings on Hugging Face can reject all models
-    # unless the provider is explicitly set or enabled in the user's account.
-    provider_candidates = [
-        "hf-inference",
-        "together",
-        "novita",
-        "fireworks-ai",
-        "cerebras",
-    ]
-
-    last_error = None
-    for provider in provider_candidates:
-        try:
-            endpoint = HuggingFaceEndpoint(
-                repo_id=repo_id,
-                provider=provider,
-                task="text-generation",
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                do_sample=True,   # required when temperature > 0
-            )
-            return ChatHuggingFace(llm=endpoint)
-        except Exception as exc:  # pragma: no cover - runtime provider negotiation
-            last_error = exc
-
-    raise RuntimeError(
-        "No enabled Hugging Face inference provider could serve this model. "
-        "Please enable providers in your Hugging Face account settings or use a model "
-        "that is available through your current provider list."
-    ) from last_error
+    try:
+        # Let Hugging Face use the default provider selection for the current
+        # account. Forcing a specific provider like `hf-inference` can fail even
+        # when the account is otherwise valid, because not every model is served
+        # by every provider.
+        endpoint = HuggingFaceEndpoint(
+            repo_id=repo_id,
+            task="text-generation",
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            do_sample=True,   # required when temperature > 0
+        )
+        return ChatHuggingFace(llm=endpoint)
+    except Exception as exc:
+        raise RuntimeError(
+            "This model is not currently available through the Hugging Face "
+            "providers enabled on your account. Please enable a supported "
+            "provider or switch to a model that is available in your account."
+        ) from exc
 
 
 # ── Prompt Template ───────────────────────────────────────────────────────────
