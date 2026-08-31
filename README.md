@@ -8,10 +8,9 @@ website link: https://ai-huggingface-chatbot.streamlit.app/
 
 <img width="1598" height="835" alt="Screenshot 2026-06-27 at 9 19 27 PM" src="https://github.com/user-attachments/assets/6df15c49-7cf3-46dc-87f7-9f8aabc52b3e" />
 
-
 ## Features
 
-- **3 open-source models** — Llama 3 8B, Mistral 7B, Qwen 2.5 7B
+- **3 open-source models** — Llama 3.1 8B Instruct, Qwen 3 8B, IBM Granite 4.2 8B
 - **Live streaming** responses (token-by-token, like ChatGPT)
 - **Adjustable settings** — temperature, max tokens, system prompt
 - **Full conversation memory** across the session
@@ -19,12 +18,12 @@ website link: https://ai-huggingface-chatbot.streamlit.app/
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| UI | Streamlit |
+| Layer             | Technology                          |
+| ----------------- | ----------------------------------- |
+| UI                | Streamlit                           |
 | LLM orchestration | LangChain (`langchain-huggingface`) |
-| Models | HuggingFace Inference API |
-| Language | Python 3.10+ |
+| Models            | HuggingFace Inference API           |
+| Language          | Python 3.10+                        |
 
 ## Getting Started
 
@@ -87,10 +86,10 @@ HUGGINGFACEHUB_API_TOKEN = "hf_your_token_here"
 
 ## Models Used
 
-| Model | HuggingFace Repo | Notes |
-|---|---|---|
-| Llama 3 8B Instruct | `meta-llama/Meta-Llama-3-8B-Instruct` | Requires HF access request |
-| Mistral 7B Instruct | `mistralai/Mistral-7B-Instruct-v0.3` | Open access |
-| Qwen 2.5 7B Instruct | `Qwen/Qwen2.5-7B-Instruct` | Open access |
+| Model                 | HuggingFace Repo                   | Notes       |
+| --------------------- | ---------------------------------- | ----------- |
+| Llama 3.1 8B Instruct | `meta-llama/Llama-3.1-8B-Instruct` | Open access |
+| Qwen 3 8B             | `Qwen/Qwen3-Next-80B-A3B-Instruct` | Open access |
+| IBM Granite 4.2 8B    | `ibm-granite/granite-4.2-8b`       | Open access |
 
-> **Note:** Llama 3 requires you to accept Meta's license on the HuggingFace model page before your token will work with it.
+> **Note:** These model IDs are selected in the app and may still be rejected by the current Hugging Face provider pool depending on your token and enabled providers. If a model is unavailable, switch the selection in the sidebar.
