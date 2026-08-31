@@ -11,7 +11,7 @@ website link: https://ai-huggingface-chatbot.streamlit.app/
 
 ## Features
 
-- **3 open-source models** — Llama 3 8B, Mistral 7B, Zephyr 7B
+- **3 open-source models** — Llama 3 8B, Mistral 7B, Qwen 2.5 7B
 - **Live streaming** responses (token-by-token, like ChatGPT)
 - **Adjustable settings** — temperature, max tokens, system prompt
 - **Full conversation memory** across the session
@@ -91,6 +91,6 @@ HUGGINGFACEHUB_API_TOKEN = "hf_your_token_here"
 |---|---|---|
 | Llama 3 8B Instruct | `meta-llama/Meta-Llama-3-8B-Instruct` | Requires HF access request |
 | Mistral 7B Instruct | `mistralai/Mistral-7B-Instruct-v0.3` | Open access |
-| Zephyr 7B Beta | `HuggingFaceH4/zephyr-7b-beta` | Open access |
+| Qwen 2.5 7B Instruct | `Qwen/Qwen2.5-7B-Instruct` | Open access |
 
 > **Note:** Llama 3 requires you to accept Meta's license on the HuggingFace model page before your token will work with it.

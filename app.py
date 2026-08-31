@@ -33,11 +33,12 @@ st.set_page_config(
 
 # ── Supported Models ──────────────────────────────────────────────────────────
 # Maps display names to HuggingFace repo IDs used by the Inference API.
-# Add or swap models here — they must support the text-generation task.
+# Older repo IDs such as Zephyr beta may disappear from the provider pool,
+# so keep this list to currently supported models.
 MODELS = {
     "Llama 3 8B Instruct": "meta-llama/Meta-Llama-3-8B-Instruct",
     "Mistral 7B Instruct": "mistralai/Mistral-7B-Instruct-v0.3",
-    "Zephyr 7B Beta": "HuggingFaceH4/zephyr-7b-beta",
+    "Qwen 2.5 7B Instruct": "Qwen/Qwen2.5-7B-Instruct",
 }
 
 
@@ -47,16 +48,36 @@ MODELS = {
 @st.cache_resource
 def load_model(repo_id: str, temperature: float, max_new_tokens: int):
     """Connect to a HuggingFace Inference API endpoint and wrap it for chat."""
-    endpoint = HuggingFaceEndpoint(
-        repo_id=repo_id,
-        task="text-generation",
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        do_sample=True,       # required when temperature > 0
-    )
-    # ChatHuggingFace wraps the endpoint to support the chat message format
-    # (HumanMessage / AIMessage) used by LangChain
-    return ChatHuggingFace(llm=endpoint)
+    # Many account-level provider settings on Hugging Face can reject all models
+    # unless the provider is explicitly set or enabled in the user's account.
+    provider_candidates = [
+        "hf-inference",
+        "together",
+        "novita",
+        "fireworks-ai",
+        "cerebras",
+    ]
+
+    last_error = None
+    for provider in provider_candidates:
+        try:
+            endpoint = HuggingFaceEndpoint(
+                repo_id=repo_id,
+                provider=provider,
+                task="text-generation",
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                do_sample=True,   # required when temperature > 0
+            )
+            return ChatHuggingFace(llm=endpoint)
+        except Exception as exc:  # pragma: no cover - runtime provider negotiation
+            last_error = exc
+
+    raise RuntimeError(
+        "No enabled Hugging Face inference provider could serve this model. "
+        "Please enable providers in your Hugging Face account settings or use a model "
+        "that is available through your current provider list."
+    ) from last_error
 
 
 # ── Prompt Template ───────────────────────────────────────────────────────────
@@ -131,7 +152,7 @@ if "chat_history" not in st.session_state:
 
 # ── Page Header ───────────────────────────────────────────────────────────────
 st.title("🤖 HuggingFace Chatbot")
-st.caption("Powered by LangChain · Meta Llama · Mistral · Zephyr")
+st.caption("Powered by LangChain · Meta Llama · Mistral · Qwen")
 
 # ── Empty State ───────────────────────────────────────────────────────────────
 if not st.session_state.chat_history:
